@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plashboard — your desktop, your dashboard</title>
+  <meta name="description" content="Design a live wallpaper dashboard for Plash: clocks, countdowns, weather, embeds, images and more." />
+  <link rel="icon" href="/assets/favicon.svg" />
+  <link rel="stylesheet" href="/assets/app.css" />
+  <link rel="stylesheet" href="/assets/render.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <section class="auth-hero">
+      <a class="brand" href="/"><img src="/assets/favicon.svg" alt="" /> Plashboard</a>
+      <div>
+        <h1>Turn your Mac's wallpaper into a living dashboard.</h1>
+        <p>Drag in clocks, countdowns, weather, to-dos, photos, web pages and anything else. Then paste one link into <a href="https://sindresorhus.com/plash" target="_blank" rel="noopener">Plash</a>.</p>
+        <div class="mock" id="mock"></div>
+      </div>
+      <p class="small muted">Self-hosted · your data stays on your own deployment</p>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card">
+        <h2 id="title">Welcome back</h2>
+        <p class="sub" id="subtitle">Sign in to edit your dashboards.</p>
+        <div class="form-error hidden" id="err"></div>
+        <form id="form" autocomplete="on">
+          <label class="field"><span>Username</span><input class="input" name="username" autocomplete="username" required minlength="3" maxlength="32" autocapitalize="off" spellcheck="false" /></label>
+          <label class="field"><span>Password</span><input class="input" name="password" type="password" autocomplete="current-password" required minlength="8" /></label>
+          <label class="field hidden" id="invite-field"><span>Invite code</span><input class="input" name="invite" autocomplete="off" /></label>
+          <button class="btn primary block" id="submit">Sign in</button>
+        </form>
+        <div class="auth-switch" id="switch"></div>
+      </div>
+    </section>
+  </div>
+  <script type="module">
+    import { api } from "/assets/ui.js";
+    import { renderDashboard } from "/assets/render.js";
+    import { TEMPLATES } from "/assets/templates.js";
+
+    const $ = (s) => document.querySelector(s);
+    let mode = "login";
+    let registration = "open";
+
+    try {
+      const me = await api("/auth/me");
+      if (me.user) location.replace("/app/");
+      registration = me.registration;
+    } catch {}
+
+    const mockDoc = TEMPLATES.find((t) => t.key === "productivity").make();
+    mockDoc.widgets = mockDoc.widgets.filter((w) => w.type !== "weather");
+    renderDashboard($("#mock"), mockDoc, { mode: "edit", dashKey: "demo" });
+
+    function setMode(m) {
+      mode = m;
+      const signup = m === "signup";
+      $("#title").textContent = signup ? "Create your login" : "Welcome back";
+      $("#subtitle").textContent = signup ? "Pick a username and password. That's it." : "Sign in to edit your dashboards.";
+      $("#submit").textContent = signup ? "Create account" : "Sign in";
+      $("#form").password.autocomplete = signup ? "new-password" : "current-password";
+      $("#invite-field").classList.toggle("hidden", !(signup && registration === "invite"));
+      $("#err").classList.add("hidden");
+      const sw = $("#switch");
+      sw.innerHTML = "";
+      if (registration === "closed" && !signup) {
+        sw.textContent = "New sign-ups are turned off on this Plashboard.";
+        return;
+      }
+      sw.append(signup ? "Already have a login? " : "New here? ");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = signup ? "Sign in" : "Create a login";
+      b.onclick = () => setMode(signup ? "login" : "signup");
+      sw.append(b);
+    }
+    setMode(new URLSearchParams(location.search).has("signup") && registration !== "closed" ? "signup" : "login");
+
+    $("#form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      $("#submit").disabled = true;
+      try {
+        await api("/auth/" + (mode === "signup" ? "signup" : "login"), {
+          method: "POST",
+          body: { username: f.username.value, password: f.password.value, invite: f.invite.value },
+        });
+        location.replace("/app/" + (mode === "signup" ? "#/new" : ""));
+      } catch (err) {
+        $("#err").textContent = err.message;
+        $("#err").classList.remove("hidden");
+      } finally {
+        $("#submit").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

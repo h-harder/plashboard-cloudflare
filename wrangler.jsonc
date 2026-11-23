@@ -1,0 +1,23 @@
+{
+  // Cloudflare Workers config. The "Deploy to Cloudflare" button reads this file
+  // and creates the KV namespace for you automatically.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "plashboard-cloudflare",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/d/*"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "PLASHBOARD_KV","id": "3f46365fa173419392a178bdd8f576a3"
+    }
+  ],
+  "vars": {
+    // "open" (anyone can sign up), "invite" (needs INVITE_CODE), or "closed"
+    "REGISTRATION": "open"
+  },
+  "observability": { "enabled": true }
+}
